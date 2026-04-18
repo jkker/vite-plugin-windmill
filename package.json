@@ -1,0 +1,75 @@
+{
+  "name": "vite-plugin-windmill",
+  "version": "0.0.1",
+  "description": "Vite plugin and deploy tooling for Windmill raw apps.",
+  "keywords": [
+    "raw-app",
+    "spa",
+    "vite",
+    "vite-plugin",
+    "windmill"
+  ],
+  "homepage": "https://github.com/Jkker/vite-plugin-windmill#readme",
+  "bugs": {
+    "url": "https://github.com/Jkker/vite-plugin-windmill/issues"
+  },
+  "license": "MIT",
+  "author": "Jerry",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jkker/vite-plugin-windmill.git"
+  },
+  "bin": {
+    "vite-plugin-windmill": "./bin/vite-plugin-windmill"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/index.mjs",
+      "./package.json": "./package.json"
+    },
+    "provenance": true
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "test": "vp test",
+    "check": "vp check",
+    "sync:upstream-runtime": "node ./scripts/sync-upstream-runtime.mjs",
+    "prepublishOnly": "vp run build"
+  },
+  "dependencies": {
+    "windmill-client": "^1.687.0",
+    "yaml": "^2.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@typescript/native-preview": "7.0.0-dev.20260401.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.8",
+    "vite-plus": "^0.1.18"
+  },
+  "peerDependencies": {
+    "vite": "^8.0.8"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@10.33.0"
+}
