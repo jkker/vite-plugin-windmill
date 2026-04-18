@@ -86,7 +86,7 @@ describe("published package smoke test", () => {
     ) as {
       exports: Record<string, unknown>;
       files?: string[];
-      publishConfig?: { provenance?: boolean };
+      publishConfig?: { access?: string; provenance?: boolean };
     };
 
     expect(installedPackageJson.exports).toEqual({
@@ -94,7 +94,10 @@ describe("published package smoke test", () => {
       "./package.json": "./package.json",
     });
     expect(installedPackageJson.files).toEqual(["dist", "bin"]);
-    expect(installedPackageJson.publishConfig?.provenance).toBe(true);
+    expect(installedPackageJson.publishConfig).toEqual({
+      access: "public",
+      provenance: true,
+    });
 
     const importResult = await execFileAsync(
       "node",

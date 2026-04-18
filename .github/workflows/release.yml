@@ -1,0 +1,236 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  schedule:
+    - cron: "21 3 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Windmill version or minor line to publish, for example 1.687 or 1.687.0"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name }}-${{ github.ref_name || github.event.inputs.version || 'nightly' }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CI: true
+
+jobs:
+  prepare:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+          node-version: 24.15.0
+          registry-url: https://registry.npmjs.org
+
+      - name: Enable corepack
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+
+      - name: Check release status
+        id: release_check
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version || '' }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${INPUT_VERSION}" ]]; then
+            node ./scripts/check-release.mjs --version "${INPUT_VERSION}" --github-output
+          else
+            node ./scripts/check-release.mjs --github-output
+          fi
+
+      - name: Exit when no release is required
+        if: steps.release_check.outputs.shouldRelease != 'true'
+        env:
+          TARGET_WINDMILL_VERSION: ${{ steps.release_check.outputs.windmillVersion }}
+        run: |
+          echo "No release required for Windmill ${TARGET_WINDMILL_VERSION}."
+
+      - name: Fail when the release tag already exists
+        if: steps.release_check.outputs.shouldRelease == 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.release_check.outputs.releaseVersion }}
+        run: |
+          set -euo pipefail
+
+          if git ls-remote --exit-code --tags origin "refs/tags/v${RELEASE_VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${RELEASE_VERSION} already exists on origin. Re-run the publish job for that tag instead of recreating it." >&2
+            exit 1
+          fi
+
+      - name: Prepare release files
+        if: steps.release_check.outputs.shouldRelease == 'true'
+        env:
+          TARGET_WINDMILL_VERSION: ${{ steps.release_check.outputs.windmillVersion }}
+        run: |
+          set -euo pipefail
+          node ./scripts/prepare-release.mjs --version "${TARGET_WINDMILL_VERSION}"
+
+      - name: Refresh lockfile and install the release line
+        if: steps.release_check.outputs.shouldRelease == 'true'
+        run: |
+          set -euo pipefail
+          pnpm install --lockfile-only
+          pnpm install --frozen-lockfile
+
+      - name: Validate the release package
+        if: steps.release_check.outputs.shouldRelease == 'true'
+        run: |
+          set -euo pipefail
+          pnpm check
+          pnpm test
+          pnpm build
+          npm pack --dry-run >/dev/null
+
+      - name: Commit and push release sources
+        if: steps.release_check.outputs.shouldRelease == 'true'
+        env:
+          IS_LATEST_RELEASE_LINE: ${{ steps.release_check.outputs.isLatestReleaseLine }}
+          RELEASE_VERSION: ${{ steps.release_check.outputs.releaseVersion }}
+          TARGET_WINDMILL_VERSION: ${{ steps.release_check.outputs.windmillVersion }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add README.md package.json pnpm-lock.yaml src/generated/upstream-build-runtime.ts
+
+          created_commit=false
+
+          if git diff --cached --quiet; then
+            release_commit=$(git rev-parse HEAD)
+          else
+            git commit -m "release: ${RELEASE_VERSION} (Windmill ${TARGET_WINDMILL_VERSION})"
+            created_commit=true
+            release_commit=$(git rev-parse HEAD)
+          fi
+
+          if [[ "${IS_LATEST_RELEASE_LINE}" == "true" && "${created_commit}" == "true" ]]; then
+            git push origin HEAD:main
+          fi
+
+          git tag -a "v${RELEASE_VERSION}" -m "vite-plugin-windmill ${RELEASE_VERSION}" "${release_commit}"
+          git push origin "refs/tags/v${RELEASE_VERSION}"
+
+  publish:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+          node-version: 24.15.0
+          registry-url: https://registry.npmjs.org
+
+      - name: Enable corepack
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+
+      - name: Read package metadata
+        id: package_meta
+        run: |
+          set -euo pipefail
+
+          package_name=$(node -p 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8")).name')
+          package_version=$(node -p 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8")).version')
+
+          echo "package_name=${package_name}" >> "$GITHUB_OUTPUT"
+          echo "package_version=${package_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure the tag matches package.json
+        env:
+          PACKAGE_VERSION: ${{ steps.package_meta.outputs.package_version }}
+        run: |
+          set -euo pipefail
+
+          expected_tag="v${PACKAGE_VERSION}"
+          if [[ "${GITHUB_REF_NAME}" != "${expected_tag}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version ${PACKAGE_VERSION}." >&2
+            exit 1
+          fi
+
+      - name: Check whether the version is already published
+        id: publish_check
+        env:
+          PACKAGE_NAME: ${{ steps.package_meta.outputs.package_name }}
+          PACKAGE_VERSION: ${{ steps.package_meta.outputs.package_version }}
+        run: |
+          set -euo pipefail
+
+          if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Exit when the version is already published
+        if: steps.publish_check.outputs.already_published == 'true'
+        env:
+          PACKAGE_NAME: ${{ steps.package_meta.outputs.package_name }}
+          PACKAGE_VERSION: ${{ steps.package_meta.outputs.package_version }}
+        run: |
+          echo "${PACKAGE_NAME}@${PACKAGE_VERSION} is already on npm. Skipping publish."
+
+      - name: Validate the release package
+        if: steps.publish_check.outputs.already_published != 'true'
+        run: |
+          set -euo pipefail
+          pnpm check
+          pnpm test
+          pnpm build
+          npm pack --dry-run >/dev/null
+
+      - name: Publish to npm with provenance
+        if: steps.publish_check.outputs.already_published != 'true'
+        run: |
+          set -euo pipefail
+          npm publish --provenance --access public
