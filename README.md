@@ -33,6 +33,13 @@ pnpm add -D vite-plugin-windmill@1.685.0
 
 Backfilled historical lines are published as `1.<windmill-minor>.0`. For example, a workspace on Windmill `1.684.1` should install `vite-plugin-windmill@1.684.0`.
 
+Historical backfills also get npm dist-tags by release line, so you can install a compatible line without pinning the full version:
+
+```bash
+pnpm add -D vite-plugin-windmill@windmill-1.686
+pnpm add -D vite-plugin-windmill@windmill-1.685
+```
+
 ## Install
 
 ```bash

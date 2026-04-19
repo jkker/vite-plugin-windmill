@@ -165,17 +165,23 @@ jobs:
       - name: Publish to npm with provenance
         if: steps.release_check.outputs.shouldRelease == 'true'
         env:
+          IS_LATEST_RELEASE_LINE: ${{ steps.release_check.outputs.isLatestReleaseLine }}
           PACKAGE_NAME: ${{ steps.release_check.outputs.packageName }}
           RELEASE_VERSION: ${{ steps.release_check.outputs.releaseVersion }}
         run: |
           set -euo pipefail
+
+          publish_tag="latest"
+          if [[ "${IS_LATEST_RELEASE_LINE}" != "true" ]]; then
+            publish_tag="windmill-${RELEASE_VERSION%.*}"
+          fi
 
           if npm view "${PACKAGE_NAME}@${RELEASE_VERSION}" version >/dev/null 2>&1; then
             echo "${PACKAGE_NAME}@${RELEASE_VERSION} is already on npm. Skipping publish."
             exit 0
           fi
 
-          npm publish --provenance --access public
+          npm publish --provenance --access public --tag "${publish_tag}"
 
   publish:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -244,6 +250,27 @@ jobs:
             echo "already_published=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Choose the npm dist-tag
+        if: steps.publish_check.outputs.already_published != 'true'
+        id: publish_tag
+        env:
+          PACKAGE_NAME: ${{ steps.package_meta.outputs.package_name }}
+          PACKAGE_VERSION: ${{ steps.package_meta.outputs.package_version }}
+        run: |
+          set -euo pipefail
+
+          latest_published=$(npm view "${PACKAGE_NAME}" dist-tags.latest 2>/dev/null || true)
+          publish_tag="latest"
+
+          if [[ -n "${latest_published}" ]]; then
+            is_higher=$(node -e 'const [candidate, latest] = process.argv.slice(1); const parse = (value) => value.split(".").map(Number); const [a1, a2, a3] = parse(candidate); const [b1, b2, b3] = parse(latest); const compare = a1 !== b1 ? a1 - b1 : a2 !== b2 ? a2 - b2 : a3 - b3; process.stdout.write(compare > 0 ? "true" : "false");' "${PACKAGE_VERSION}" "${latest_published}")
+            if [[ "${is_higher}" != "true" ]]; then
+              publish_tag="windmill-${PACKAGE_VERSION%.*}"
+            fi
+          fi
+
+          echo "publish_tag=${publish_tag}" >> "$GITHUB_OUTPUT"
+
       - name: Exit when the version is already published
         if: steps.publish_check.outputs.already_published == 'true'
         env:
@@ -263,6 +290,8 @@ jobs:
 
       - name: Publish to npm with provenance
         if: steps.publish_check.outputs.already_published != 'true'
+        env:
+          PUBLISH_TAG: ${{ steps.publish_tag.outputs.publish_tag }}
         run: |
           set -euo pipefail
-          npm publish --provenance --access public
+          npm publish --provenance --access public --tag "${PUBLISH_TAG}"
