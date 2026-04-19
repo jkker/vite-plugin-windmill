@@ -1,6 +1,8 @@
+import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 import ts from "typescript";
 
@@ -13,6 +15,7 @@ export const COMPATIBILITY_BLOCK_END = "<!-- windmill-release:compat-end -->";
 
 const REGISTRY_BASE_URL = "https://registry.npmjs.org";
 const USER_AGENT = "vite-plugin-windmill-release";
+const execFileAsync = promisify(execFile);
 
 const currentFile = fileURLToPath(import.meta.url);
 export const packageRoot = path.resolve(path.dirname(currentFile), "..");
@@ -27,6 +30,12 @@ const readJsonFile = async (filePath) => JSON.parse(await readFile(filePath, "ut
 
 const writeJsonFile = async (filePath, value) => {
   await writeFile(filePath, JSON.stringify(value, null, 2) + "\n");
+};
+
+const formatFiles = async (files) => {
+  await execFileAsync("pnpm", ["exec", "vp", "check", "--fix", ...files], {
+    cwd: packageRoot,
+  });
 };
 
 const fetchText = async (url) => {
@@ -259,6 +268,7 @@ export const prepareRelease = async ({ requestedVersion } = {}) => {
   await writeFile(readmePath, replaceCompatibilityBlock(readme, { windmillVersion }));
 
   const runtimeResult = await writeGeneratedRuntimeFile({ windmillVersion });
+  await formatFiles(["README.md", "package.json", runtimeResult.relativeOutputPath]);
 
   return {
     releaseVersion,

@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.event_name }}-${{ github.ref_name || github.event.inputs.version || 'nightly' }}
+  group: release-${{ github.event_name }}-${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.version || 'latest') || github.ref_name || 'nightly' }}
   cancel-in-progress: false
 
 defaults:
