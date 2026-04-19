@@ -50,6 +50,7 @@ const tempDirs: string[] = [];
 
 const originalEnv = {
   BASE_INTERNAL_URL: process.env.BASE_INTERNAL_URL,
+  GITHUB_SHA: process.env.GITHUB_SHA,
   WM_TOKEN: process.env.WM_TOKEN,
   WM_WORKSPACE: process.env.WM_WORKSPACE,
 };
@@ -73,6 +74,7 @@ beforeEach(() => {
   process.env.WM_WORKSPACE = "example-workspace";
   process.env.WM_TOKEN = "example-token";
   process.env.BASE_INTERNAL_URL = "https://windmill.example.com";
+  delete process.env.GITHUB_SHA;
 
   createAppRaw.mockReset();
   getAppByPath.mockReset();
@@ -91,6 +93,9 @@ afterEach(async () => {
 
   if (originalEnv.BASE_INTERNAL_URL === undefined) delete process.env.BASE_INTERNAL_URL;
   else process.env.BASE_INTERNAL_URL = originalEnv.BASE_INTERNAL_URL;
+
+  if (originalEnv.GITHUB_SHA === undefined) delete process.env.GITHUB_SHA;
+  else process.env.GITHUB_SHA = originalEnv.GITHUB_SHA;
 
   if (originalEnv.WM_TOKEN === undefined) delete process.env.WM_TOKEN;
   else process.env.WM_TOKEN = originalEnv.WM_TOKEN;
@@ -182,6 +187,37 @@ describe("deploy", () => {
         formData: expect.objectContaining({
           app: expect.objectContaining({
             deployment_message: "vite-plugin-windmill deploy",
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("includes the GitHub SHA in the default deployment message when available", async () => {
+    const workspaceDir = await createTempWorkspace();
+    const dir = await createRawApp(workspaceDir);
+
+    process.env.GITHUB_SHA = "240ce7d739a39a3f408f006e76e73bab2627c883";
+
+    getAppByPath.mockRejectedValueOnce(
+      new MockApiError(
+        { method: "GET" },
+        { body: {}, status: 404, statusText: "Not Found", url: "https://windmill.example.com" },
+        "Not Found",
+      ),
+    );
+
+    await deploy({
+      bundles: { css: "body{}", js: 'console.log("demo")' },
+      dir,
+    });
+
+    expect(createAppRaw).toHaveBeenCalledWith(
+      expect.objectContaining({
+        formData: expect.objectContaining({
+          app: expect.objectContaining({
+            deployment_message:
+              "vite-plugin-windmill deploy 240ce7d739a39a3f408f006e76e73bab2627c883",
           }),
         }),
       }),
