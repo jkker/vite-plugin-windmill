@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-windmill",
-  "version": "1.693.0",
+  "version": "1.694.0",
   "description": "Vite plugin and deploy tooling for Windmill raw apps.",
   "keywords": [
     "raw-app",
@@ -50,7 +50,7 @@
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "windmill-client": "^1.693.0",
+    "windmill-client": "^1.694.0",
     "yaml": "^2.8.3"
   },
   "devDependencies": {
