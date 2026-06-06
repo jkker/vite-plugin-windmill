@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       windmill-client:
-        specifier: ^1.717.0
-        version: 1.717.1
+        specifier: ^1.718.0
+        version: 1.718.0
       yaml:
         specifier: ^2.8.3
         version: 2.8.3
@@ -870,8 +870,8 @@ packages:
       yaml:
         optional: true
 
-  windmill-client@1.717.1:
-    resolution: {integrity: sha512-EJUKToE/0AEq9DpkvpgQGcpdDVEQoHkgYW2HosrZrl2bwxO/RtY+Cz4w24PcqSHMm1t1yO2po2jBp1duBollTQ==}
+  windmill-client@1.718.0:
+    resolution: {integrity: sha512-Bqm5taTrzX6lQ8TuZ5hGwgnr+5O3HlmDAbk/3KtoeIcRnj0CMBnhZyC/Z2zJ+IFhUVcY3VYGp13BiSxwJEalKA==}
 
   ws@8.20.0:
     resolution: {integrity: sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==}
@@ -1478,7 +1478,7 @@ snapshots:
       fsevents: 2.3.3
       yaml: 2.8.3
 
-  windmill-client@1.717.1: {}
+  windmill-client@1.718.0: {}
 
   ws@8.20.0: {}
 
