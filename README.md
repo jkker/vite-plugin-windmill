@@ -17,9 +17,9 @@ This package version tracks Windmill minor releases. New package versions are pu
 
 <!-- windmill-release:compat-start -->
 
-Current release line: `1.758.x`
+Current release line: `1.760.x`
 
-It currently depends on `windmill-client@^1.758.0` and bundles `rawAppWmillTs.ts` generated from `windmill-labs/windmill@v1.758.0`.
+It currently depends on `windmill-client@^1.760.0` and bundles `rawAppWmillTs.ts` generated from `windmill-labs/windmill@v1.760.1`.
 
 <!-- windmill-release:compat-end -->
 
